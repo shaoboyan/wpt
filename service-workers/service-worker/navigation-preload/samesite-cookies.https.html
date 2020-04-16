@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Navigation Preload: SameSite cookies</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="../resources/test-helpers.sub.js"></script>
+<body>
+<script>
+const scope = 'resources/set-cookie.py';
+//const scope = '../../../cookies/resources/setSameSite.py';
+const script = 'resources/samesite-cookies-worker.js';
+
+async function samesite_cookies_test(t, samesite) {
+  const registration =
+    await service_worker_unregister_and_register(t, script, scope);
+  await wait_for_state(t, registration.installing, 'activated');
+  await registration.navigationPreload.enable();
+
+  // First navigation request to the server. Cookies will be set in the iframe.
+  const frame1 = await with_iframe(scope + '?samesite=' + samesite);
+  // The server sends the value of "dummy-cookie-key" if it exists, otherwise sends 0.
+  assert_equals(frame1.contentDocument.body.textContent, '0');
+  t.add_cleanup(() => frame1.remove());
+
+  // Second navigation request to the server handled by navigation preload with cookies.
+  const frame2 = await with_iframe(scope + '?samesite=' + samesite);
+  // The server sends the value of "dummy-cookie-key" if it exists, otherwise sends 0.
+  assert_equals(frame2.contentDocument.body.textContent, '1');
+  t.add_cleanup(() => frame2.remove());
+
+  await registration.unregister();
+}
+
+async_test(t => {
+  samesite_cookies_test(t, 'None');
+  t.done();
+}, 'Navigation Preload for navigation preload and same site cookies (None).');
+
+async_test(t => {
+  samesite_cookies_test(t, 'Strict');
+  t.done();
+}, 'Navigation Preload for navigation preload and same site cookies (Strict).');
+
+async_test(t => {
+  samesite_cookies_test(t, 'Lax');
+  t.done();
+}, 'Navigation Preload for navigation preload and same site cookies (Lax).');
+</script>
+</body>
